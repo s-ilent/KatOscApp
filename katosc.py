@@ -18,6 +18,7 @@
 from threading import Timer
 from pythonosc import udp_client, osc_server, dispatcher
 import math, asyncio, threading
+from unicodedata import normalize
 
 
 class KatOscConfig:
@@ -299,6 +300,31 @@ class KatOsc:
 			"°": 255
 		}
 
+		self.auto_replace_char = {
+			# Full width punctuation
+			"－" : "-",
+			# Katakana that doesn't fit into the main table
+			"ガ" : "カ〝",
+			"ギ" : "キ〝",
+			"グ" : "ク〝",
+			"ゲ" : "ケ〝",
+			"ゴ" : "コ〝",
+			"ザ" : "サ〝",
+			"ジ" : "シ〝",
+			"ズ" : "ス〝",
+			"ゼ" : "セ〝",
+			"ゾ" : "ソ〝",
+			"ダ" : "タ〝",
+			"ヂ" : "チ〝",
+			"ヅ" : "ツ〝",
+			"デ" : "テ〝",
+			"ド" : "ト〝",
+			# These should be added to the main table later
+			"ャ" : "ヤ",
+			"ュ" : "ユ",
+			"ョ" : "ヨ",
+		}
+
 		# Character to use in place of unknown characters
 		self.invalid_char_value = self.keys.get(self.invalid_char, 0)
 
@@ -336,12 +362,23 @@ class KatOsc:
 
 	# Set the text to any value
 	def set_text(self, text: str):
+		text = normalize('NFKC', text)
 		self.target_text = text
-
 
 	# Syncronisation loop
 	def osc_timer_loop(self):
 		gui_text = self.target_text
+		gui_text = normalize('NFKC', gui_text)
+
+		fixed_text = ""
+		for char in gui_text:
+			replace = self.auto_replace_char.get(char)
+			if replace is not None:
+				fixed_text += replace
+			else:
+				fixed_text += char
+
+		gui_text = fixed_text
 
 		# Test parameter count if an update is requried
 		if self.osc_enable_server:
